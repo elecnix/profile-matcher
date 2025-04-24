@@ -20,5 +20,19 @@ services:
       - "54326:8000"
     environment:
       - PYTHONUNBUFFERED=1
+      - MONGO_URL=mongodb://mongo:27017
     volumes:
       - ./services/profiles:/app/services/profiles
+    depends_on:
+      - mongo
+
+  mongo:
+    image: mongodb/mongodb-community-server:7.0.18-ubi9
+    container_name: mongo
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo_data:/data/db
+
+volumes:
+  mongo_data:
