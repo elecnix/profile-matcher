@@ -1,0 +1,7 @@
+[project]
+name = "profile-matcher"
+version = "0.1.0"
+description = "Python microservices for campaign and profile management."
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = []
