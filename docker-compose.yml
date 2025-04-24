@@ -1,0 +1,24 @@
+services:
+  campaigns:
+    build:
+      context: .
+      dockerfile: services/campaigns/Dockerfile
+    command: uv run uvicorn main:app --host 0.0.0.0 --port 8000
+    ports:
+      - "54325:8000"
+    environment:
+      - PYTHONUNBUFFERED=1
+    volumes:
+      - ./services/campaigns:/app/services/campaigns
+
+  profiles:
+    build:
+      context: .
+      dockerfile: services/profiles/Dockerfile
+    command: uv run uvicorn main:app --host 0.0.0.0 --port 8000
+    ports:
+      - "54326:8000"
+    environment:
+      - PYTHONUNBUFFERED=1
+    volumes:
+      - ./services/profiles:/app/services/profiles
