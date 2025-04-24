@@ -4,6 +4,20 @@
 
 A monorepo containing stateless Python microservices for campaign management and profile management, designed for high scalability and type safety using FastAPI and Pydantic.
 
+## Running Tests
+
+Make sure all dependencies are installed. If you need to install dependencies, run:
+
+```bash
+uv sync
+```
+
+To run the tests, use:
+
+```bash
+pytest
+```
+
 ## Services
 
 - **Campaign Service**: Serves campaign data via HTTP API.
@@ -14,7 +28,6 @@ A monorepo containing stateless Python microservices for campaign management and
 To start both services for local development:
 
 ```bash
-uv sync
 docker compose up --build
 ```
 
