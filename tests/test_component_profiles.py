@@ -2,9 +2,6 @@ import pytest
 from fastapi.testclient import TestClient
 from services.profiles.main import app
 
-client = TestClient(app)
-
-# Mock response for the campaigns service
 mock_campaigns_response = [
     {
         "game": "mygame",
@@ -22,16 +19,27 @@ mock_campaigns_response = [
     }
 ]
 
-async def mock_get_campaigns():
-    return mock_campaigns_response
-
-def test_get_client_config_returns_non_empty_profile(monkeypatch):
-    async def mock_get_profile_by_player_id(db, player_id):
+class MockProfileService:
+    def __init__(self, *args, **kwargs):
+        pass
+    async def get_client_config(self, player_id: str):
         if player_id == "9001":
-            return {"player_id": "9001", "name": "Test", "level": 1}
+            return {
+                "player_id": "9001",
+                "name": "Test",
+                "level": 1,
+                "active_campaigns": mock_campaigns_response
+            }
         return None
-    monkeypatch.setattr("services.profiles.repository.get_profile_by_player_id", mock_get_profile_by_player_id)
-    monkeypatch.setattr("services.profiles.repository.get_active_campaigns", mock_get_campaigns)
+
+@pytest.fixture(autouse=True)
+def override_service_dependency():
+    from services.profiles.main import get_service
+    app.dependency_overrides[get_service] = lambda: MockProfileService()
+    yield
+    app.dependency_overrides.clear()
+
+def test_get_client_config_returns_non_empty_profile():
     with TestClient(app) as client:
         player_id = "9001"
         response = client.get(f"/get_client_config/{player_id}")
