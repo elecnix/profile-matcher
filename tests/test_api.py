@@ -54,7 +54,7 @@ def test_endpoint_get_client_config_not_found():
 
 def test_endpoint_get_client_config_exception(monkeypatch):
     """
-    Test that the endpoint logs and returns 404 when an exception is raised in the service.
+    Test that the endpoint logs and returns 500 when an exception is raised in the service.
     Covers the except/logging path in the endpoint.
     """
     class ExceptionService:
@@ -64,6 +64,6 @@ def test_endpoint_get_client_config_exception(monkeypatch):
     app.dependency_overrides[get_service] = lambda: ExceptionService()
     with TestClient(app) as client:
         response = client.get("/get_client_config/any")
-        assert response.status_code == 404
-        assert response.json()["detail"] == "Profile not found"
+        assert response.status_code == 500
+        assert response.json()["detail"] == "Internal server error"
     app.dependency_overrides.clear()
