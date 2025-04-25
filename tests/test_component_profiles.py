@@ -22,6 +22,9 @@ mock_campaigns_response = [
     }
 ]
 
+async def mock_get_campaigns():
+    return mock_campaigns_response
+
 @pytest.fixture
 def mock_campaigns(monkeypatch):
     import requests
@@ -39,10 +42,13 @@ def test_get_client_config_returns_non_empty_profile(mock_campaigns, monkeypatch
         if player_id == "9001":
             return {"player_id": "9001", "name": "Test", "level": 1}
         return None
-    monkeypatch.setattr("services.profiles.main.get_profile_by_player_id", mock_get_profile_by_player_id)
+    monkeypatch.setattr("services.profiles.repository.get_profile_by_player_id", mock_get_profile_by_player_id)
+    monkeypatch.setattr("services.profiles.repository.get_active_campaigns", mock_get_campaigns)
     with TestClient(app) as client:
         player_id = "9001"
         response = client.get(f"/get_client_config/{player_id}")
         assert response.status_code == 200
         data = response.json()
         assert data["player_id"] == player_id
+        assert "active_campaigns" in data
+        assert data["active_campaigns"] == mock_campaigns_response
