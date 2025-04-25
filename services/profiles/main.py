@@ -1,12 +1,9 @@
 import os
 import logging
-from fastapi import FastAPI, HTTPException, Depends
+from fastapi import FastAPI, HTTPException, Depends, Request
 from motor.motor_asyncio import AsyncIOMotorClient
 from contextlib import asynccontextmanager
 from typing import Optional, Dict
-
-from services.profiles.repository.profile import ProfileRepository
-from services.profiles.repository.campaign import CampaignRepository
 from services.profiles.service import ProfileService
 
 @asynccontextmanager
@@ -20,32 +17,15 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(lifespan=lifespan)
 
-def get_mongo_client() -> AsyncIOMotorClient:
-    return app.state.mongo_client
-
-# Dependency providers
-
-def get_profile_repository(mongo_client: AsyncIOMotorClient = Depends(get_mongo_client)) -> ProfileRepository:
-    return ProfileRepository(mongo_client)
-
-def get_campaign_repository() -> CampaignRepository:
-    return CampaignRepository()
-
-def get_service(
-    profile_repository: ProfileRepository = Depends(get_profile_repository),
-    campaign_repository: CampaignRepository = Depends(get_campaign_repository),
-) -> ProfileService:
-    return ProfileService(profile_repository, campaign_repository)
-
-# Endpoints
+from services.profiles.dependencies import get_service, get_mongo_client
 
 @app.get("/health")
-async def health(mongo_client: AsyncIOMotorClient = Depends(get_mongo_client)) -> Dict:
+async def health(request: Request) -> Dict:
     """
     Check the health of the MongoDB database.
     """
     try:
-        await mongo_client.admin.command({"ping": 1})
+        await get_mongo_client(request).admin.command({"ping": 1})
         return {"mongo": "ok"}
     except Exception as e:
         logging.error(f"MongoDB health check failed: {e}")

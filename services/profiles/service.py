@@ -1,6 +1,6 @@
 from typing import Optional, Dict
-from services.profiles.repository.profile import ProfileRepository
-from services.profiles.repository.campaign import CampaignRepository
+from services.profiles.repository.profiles import ProfileRepository
+from services.profiles.repository.campaigns import CampaignRepository
 
 class ProfileService:
     def __init__(self, profile_repository: ProfileRepository, campaign_repository: CampaignRepository):
