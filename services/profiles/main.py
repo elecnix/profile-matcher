@@ -3,6 +3,7 @@ import logging
 from fastapi import FastAPI, HTTPException, Depends
 from motor.motor_asyncio import AsyncIOMotorClient
 from contextlib import asynccontextmanager
+from services.profiles.repository import get_profile_by_player_id
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -29,8 +30,7 @@ async def health(mongo_client: AsyncIOMotorClient = Depends(get_mongo_client)):
 
 @app.get("/get_client_config/{player_id}")
 async def get_client_config(player_id: str, mongo_client: AsyncIOMotorClient = Depends(get_mongo_client)):
-    profile = await mongo_client["profiles_db"]["profiles"].find_one({"player_id": player_id})
+    profile = await get_profile_by_player_id(mongo_client, player_id)
     if profile:
-        profile.pop("_id", None)  # Remove _id field if present
         return profile
     raise HTTPException(status_code=404, detail="Profile not found")

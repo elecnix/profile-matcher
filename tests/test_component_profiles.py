@@ -33,29 +33,16 @@ def mock_campaigns(monkeypatch):
             return 200
     monkeypatch.setattr(requests, "get", lambda *args, **kwargs: MockResponse())
 
-@pytest.fixture
-def mock_mongo_client():
-    class MockCollection:
-        async def find_one(self, query):
-            if query.get("player_id") == "9001":
-                return {"player_id": "9001", "name": "Test", "level": 1, "_id": "mockid"}
-            return None
-    class MockDB:
-        def __getitem__(self, name):
-            return MockCollection()
-    class MockClient:
-        def __getitem__(self, name):
-            return MockDB()
-    return MockClient()
 
-from services.profiles.main import get_mongo_client
-
-def test_get_client_config_returns_non_empty_profile(mock_campaigns, mock_mongo_client):
-    app.dependency_overrides[get_mongo_client] = lambda: mock_mongo_client
+def test_get_client_config_returns_non_empty_profile(mock_campaigns, monkeypatch):
+    async def mock_get_profile_by_player_id(db, player_id):
+        if player_id == "9001":
+            return {"player_id": "9001", "name": "Test", "level": 1}
+        return None
+    monkeypatch.setattr("services.profiles.main.get_profile_by_player_id", mock_get_profile_by_player_id)
     with TestClient(app) as client:
         player_id = "9001"
         response = client.get(f"/get_client_config/{player_id}")
         assert response.status_code == 200
         data = response.json()
-        assert data["player_id"] == "9001"
-    app.dependency_overrides = {}
+        assert data["player_id"] == player_id
