@@ -1,22 +1,26 @@
-from typing import TypedDict, List
+from typing import List, TypedDict
+from pydantic import RootModel
 
-class LevelMatcher(TypedDict):
+from pydantic import BaseModel, RootModel
+from typing import List, Optional
+
+class LevelMatcher(BaseModel):
     min: int
     max: int
 
-class HasMatcher(TypedDict, total=False):
-    country: List[str]
-    items: List[str]
+class HasMatcher(BaseModel):
+    country: Optional[List[str]] = None
+    items: Optional[List[str]] = None
 
-class DoesNotHaveMatcher(TypedDict, total=False):
-    items: List[str]
+class DoesNotHaveMatcher(BaseModel):
+    items: Optional[List[str]] = None
 
-class Matchers(TypedDict, total=False):
-    level: LevelMatcher
-    has: HasMatcher
-    does_not_have: DoesNotHaveMatcher
+class Matchers(BaseModel):
+    level: Optional[LevelMatcher] = None
+    has: Optional[HasMatcher] = None
+    does_not_have: Optional[DoesNotHaveMatcher] = None
 
-class Campaign(TypedDict):
+class Campaign(BaseModel):
     game: str
     name: str
     priority: float
@@ -25,3 +29,6 @@ class Campaign(TypedDict):
     end_date: str
     enabled: bool
     last_updated: str
+
+class CampaignResponse(RootModel[List[Campaign]]):
+    pass

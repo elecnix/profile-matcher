@@ -23,4 +23,6 @@ class ProfileRepository:
         profile = await self.db["profiles_db"]["profiles"].find_one({"player_id": player_id})
         if profile:
             profile.pop("_id", None)
+            # Validate profile using Pydantic. Raise if invalid.
+            profile = Profile.model_validate(profile)
         return profile

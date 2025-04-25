@@ -1,6 +1,7 @@
-from typing import TypedDict, List, Dict, Optional
+from typing import List, Dict
+from pydantic import BaseModel, model_validator
 
-class Device(TypedDict):
+class Device(BaseModel):
     id: int
     model: str
     carrier: str
@@ -9,11 +10,11 @@ class Device(TypedDict):
 # Inventory is a mapping of item name to quantity
 Inventory = Dict[str, int]
 
-class Clan(TypedDict):
+class Clan(BaseModel):
     id: str
     name: str
 
-class Profile(TypedDict, total=False):
+class Profile(BaseModel, extra='allow'):
     player_id: str
     credential: str
     created: str
@@ -34,3 +35,12 @@ class Profile(TypedDict, total=False):
     gender: str
     inventory: Inventory
     clan: Clan
+
+    @model_validator(mode="before")
+    @classmethod
+    def check_custom_fields(cls, values: dict) -> dict:
+        known_fields = set(cls.model_fields)
+        for key in values:
+            if key not in known_fields and not key.startswith("_"):
+                raise ValueError(f"Custom profile field '{key}' must start with '_' (got: {key})")
+        return values
