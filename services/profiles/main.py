@@ -29,8 +29,11 @@ async def health(mongo_client: AsyncIOMotorClient = Depends(get_mongo_client)):
 
 @app.get("/get_client_config/{player_id}")
 async def get_client_config(player_id: str, mongo_client: AsyncIOMotorClient = Depends(get_mongo_client)):
-    from services.profiles.service import get_client_config as svc
-    profile = await svc(mongo_client, player_id)
-    if profile:
-        return profile
+    try:
+        from services.profiles.service import get_client_config as svc
+        profile = await svc(mongo_client, player_id)
+        if profile:
+            return profile
+    except Exception as e:
+        logging.error(f"get_client_config failed: {e}")
     raise HTTPException(status_code=404, detail="Profile not found")

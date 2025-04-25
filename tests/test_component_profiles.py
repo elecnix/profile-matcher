@@ -25,19 +25,7 @@ mock_campaigns_response = [
 async def mock_get_campaigns():
     return mock_campaigns_response
 
-@pytest.fixture
-def mock_campaigns(monkeypatch):
-    import requests
-    class MockResponse:
-        def json(self):
-            return mock_campaigns_response
-        @property
-        def status_code(self):
-            return 200
-    monkeypatch.setattr(requests, "get", lambda *args, **kwargs: MockResponse())
-
-
-def test_get_client_config_returns_non_empty_profile(mock_campaigns, monkeypatch):
+def test_get_client_config_returns_non_empty_profile(monkeypatch):
     async def mock_get_profile_by_player_id(db, player_id):
         if player_id == "9001":
             return {"player_id": "9001", "name": "Test", "level": 1}
