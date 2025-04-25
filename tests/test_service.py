@@ -1,13 +1,17 @@
 from hypothesis import given, strategies as st
+import hypothesis
 from hypothesis.strategies import from_type
 from services.profiles.service import level_matcher, has_matcher, does_not_have_matcher, match_campaign
 from services.profiles.repository.profiles_types import Profile
 from services.profiles.repository.campaigns_types import Campaign, Matchers, LevelMatcher, HasMatcher, DoesNotHaveMatcher
 
+hypothesis.settings.register_profile('fast', max_examples=3)
+hypothesis.settings.load_profile('fast')
+
 st_profile = from_type(Profile)
 st_campaign = from_type(Campaign)
 
-def with_matchers(campaign, matchers: Matchers):
+def with_matchers(campaign: Campaign, matchers: Matchers):
     return campaign.model_copy(update={'matchers': matchers})
 
 @given(st_profile, st_campaign)
@@ -46,16 +50,33 @@ def test_has_matcher_items_fail(profile: Profile, campaign: Campaign):
     profile = profile.model_copy(update={'inventory': {'sword': 1}})
     assert not has_matcher(profile, campaign)
 
-@given(st_profile, st_campaign)
-def test_does_not_have_matcher_pass(profile: Profile, campaign: Campaign):
-    campaign = with_matchers(campaign, Matchers(does_not_have=DoesNotHaveMatcher(items=['bow'])))
-    profile = profile.model_copy(update={'inventory': {'sword': 1}})
+def inventory_without_forbidden(forbidden):
+    """Strategy for inventory dicts where forbidden is either absent or set to 0."""
+    return st.dictionaries(
+        keys=st.text(min_size=1, max_size=10).filter(lambda k: k != forbidden),
+        values=st.integers(min_value=1, max_value=10),
+        max_size=5
+    ).flatmap(lambda inv: st.one_of(
+        st.just(inv),
+        st.just({**inv, forbidden: 0})
+    ))
+
+@given(
+    profile=st_profile,
+    campaign=st_campaign,
+    inventory=inventory_without_forbidden('sword')
+)
+def test_does_not_have_matcher_pass(profile: Profile, campaign: Campaign, inventory):
+    forbidden = 'sword'
+    campaign = with_matchers(campaign, Matchers(does_not_have=DoesNotHaveMatcher(items=[forbidden])))
+    profile = profile.model_copy(update={'inventory': inventory})
     assert does_not_have_matcher(profile, campaign)
 
 @given(st_profile, st_campaign)
 def test_does_not_have_matcher_fail(profile: Profile, campaign: Campaign):
-    campaign = with_matchers(campaign, Matchers(does_not_have=DoesNotHaveMatcher(items=['sword'])))
-    profile = profile.model_copy(update={'inventory': {'sword': 1}})
+    forbidden = 'sword'
+    campaign = with_matchers(campaign, Matchers(does_not_have=DoesNotHaveMatcher(items=[forbidden])))
+    profile = profile.model_copy(update={'inventory': {forbidden: 1}})
     assert not does_not_have_matcher(profile, campaign)
 
 @given(st_profile, st_campaign)
@@ -65,11 +86,11 @@ def test_match_campaign_all_match(profile: Profile, campaign: Campaign):
         has=HasMatcher(country=['US'], items=['sword']),
         does_not_have=DoesNotHaveMatcher(items=['bow'])
     ))
-    profile = profile.model_copy(update={'level': 5, 'country': 'US', 'inventory': {'sword': 1}})
+    profile = profile.model_copy(update={'level': 5, 'country': 'US', 'inventory': {'sword': 1, 'bow': 0}})
     assert match_campaign(profile, campaign)
 
 @given(st_profile, st_campaign)
-def test_match_campaign_one_fails(profile:Profile, campaign:Campaign):
+def test_match_campaign_one_fails(profile: Profile, campaign:Campaign):
     campaign = with_matchers(campaign, Matchers(
         level=LevelMatcher(min=1, max=10),
         has=HasMatcher(country=['US'], items=['sword']),

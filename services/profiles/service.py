@@ -42,9 +42,9 @@ def has_matcher(profile: Profile, campaign: Campaign) -> bool:
 def does_not_have_matcher(profile: Profile, campaign: Campaign) -> bool:
     matchers = campaign.matchers
     if matchers.does_not_have and matchers.does_not_have.items:
-        inventory_items = set(profile.inventory.keys())
-        if set(matchers.does_not_have.items) & inventory_items:
-            return False
+        for item, quantity in profile.inventory.items():
+            if item in matchers.does_not_have.items and quantity > 0:
+                return False
     return True
 
 def match_campaign(profile: Profile, campaign: Campaign) -> bool:
