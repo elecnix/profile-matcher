@@ -2,6 +2,7 @@ from typing import List
 from .campaigns_types import Campaign, CampaignResponse
 import httpx
 from datetime import datetime, timezone
+from aiocache import cached, SimpleMemoryCache
 
 class CampaignRepository:
     async def get_active_campaigns(self, start_date: datetime = None, end_date: datetime = None) -> List[Campaign]:
@@ -13,6 +14,10 @@ class CampaignRepository:
             start_date = now
         if not end_date:
             end_date = now
+        return await self._fetch_campaigns(start_date, end_date)
+
+    @cached(ttl=300, cache=SimpleMemoryCache)
+    async def _fetch_campaigns(self, start_date: datetime, end_date: datetime) -> List[Campaign]:
         async with httpx.AsyncClient() as client:
             response = await client.get("http://campaigns:8000/campaigns", params={"start_date": start_date.isoformat(), "end_date": end_date.isoformat()})
             response.raise_for_status()

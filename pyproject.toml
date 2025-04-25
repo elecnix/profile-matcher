@@ -5,6 +5,7 @@ description = "Python microservices for campaign and profile management."
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
+    "aiocache>=0.12.3",
     "fastapi>=0.115.12",
     "httpx>=0.28.1",
     "motor>=3.7.0",

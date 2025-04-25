@@ -18,14 +18,20 @@ from services.profiles.repository.campaigns_types import Campaign
 from hypothesis import given
 from unittest.mock import patch
 from hypothesis.strategies import from_type
+import pytest_asyncio
 
 campaign_strategy = from_type(Campaign)
 
+@pytest_asyncio.fixture(autouse=True)
+def patch_fetch_campaigns(monkeypatch):
+    # Patch the _fetch_campaigns method to remove the aiocache decorator for tests
+    orig = CampaignRepository._fetch_campaigns.__wrapped__
+    monkeypatch.setattr(CampaignRepository, "_fetch_campaigns", orig)
 
 def make_mock_get(called, campaign):
     async def mock_get(self, url, params=None, **kwargs):
         called['url'] = url
-        called['params'] = params
+        called['params'] = params or {}
         class MockResponse:
             def raise_for_status(self) -> None:
                 pass
@@ -34,18 +40,23 @@ def make_mock_get(called, campaign):
         return MockResponse()
     return mock_get
 
+from hypothesis.strategies import datetimes
+
 @pytest.mark.asyncio
-@given(campaign_strategy)
-async def test_get_active_campaigns_success_explicit_interval(campaign: Campaign) -> None:
+@given(
+    campaign=campaign_strategy,
+    start=datetimes(),
+    end=datetimes()
+)
+async def test_get_active_campaigns_success_explicit_interval(campaign: Campaign, start: datetime.datetime, end: datetime.datetime) -> None:
     """
     Test that get_active_campaigns returns campaign data and passes explicit interval params.
     """
     called = {}
     with patch("httpx.AsyncClient.get", make_mock_get(called, campaign)):
         repo = CampaignRepository()
-        start = datetime.datetime(2025, 1, 1, tzinfo=datetime.timezone.utc)
-        end = datetime.datetime(2025, 1, 2, tzinfo=datetime.timezone.utc)
         await repo.get_active_campaigns(start, end)
+        assert 'params' in called, f"Mock was not called, got called={called} for campaign={campaign!r}"
         assert called['params']['start_date'] == start.isoformat()
         assert called['params']['end_date'] == end.isoformat()
 
@@ -80,8 +91,10 @@ async def test_get_active_campaigns_error() -> None:
         with pytest.raises(httpx.HTTPStatusError):
             await repo.get_active_campaigns()
 
+make_invalid_campaign = lambda c: c.model_copy(update={"game": None})
+
 @pytest.mark.asyncio
-@given(campaign_strategy.map(lambda c: c.model_copy(update={"game": None})))
+@given(campaign_strategy.map(make_invalid_campaign))
 async def test_get_active_campaigns_invalid_campaign(invalid_campaign: Campaign) -> None:
     """
     Test that get_active_campaigns raises a ValidationError when the HTTP response contains an invalid campaign, in this case where 'game' is None.

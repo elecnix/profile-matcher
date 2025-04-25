@@ -3,27 +3,17 @@ from services.profiles.repository.campaigns_types import Campaign
 from services.profiles.repository.profiles_types import Profile
 from services.profiles.repository.profiles import ProfileRepository
 from services.profiles.repository.campaigns import CampaignRepository
-from services.profiles.repository.campaigns_cache import CampaignCache
 
 class ProfileService:
-    def __init__(self, profile_repository: ProfileRepository, campaign_repository: CampaignRepository, cache_cls=CampaignCache):
+    def __init__(self, profile_repository: ProfileRepository, campaign_repository: CampaignRepository):
         self._profile_repository = profile_repository
-        if cache_cls is not None:
-            self._campaign_cache = cache_cls(campaign_repository)
-        else:
-            self._campaign_cache = None
-
-    async def fetch_active_campaigns(self) -> List[Campaign]:
-        if self._campaign_cache is not None:
-            return await self._campaign_cache.get_currently_active_campaigns()
-        else:
-            return await self._profile_repository.campaign_repository.get_active_campaigns()
+        self._campaign_repository = campaign_repository
 
     async def get_client_config(self, player_id: str) -> Optional[Profile]:
         profile = await self._profile_repository.get_profile_by_player_id(player_id)
         if not profile:
             return None
-        campaigns = await self.fetch_active_campaigns()
+        campaigns = await self._campaign_repository.get_active_campaigns()
         matched_campaigns = [c.name for c in campaigns if match_campaign(profile, c)]
         profile.active_campaigns = matched_campaigns
         return profile
