@@ -51,3 +51,19 @@ def test_endpoint_get_client_config_not_found():
         response = client.get("/get_client_config/404")
         assert response.status_code == 404
         assert response.json()["detail"] == "Profile not found"
+
+def test_endpoint_get_client_config_exception(monkeypatch):
+    """
+    Test that the endpoint logs and returns 404 when an exception is raised in the service.
+    Covers the except/logging path in the endpoint.
+    """
+    class ExceptionService:
+        async def get_client_config(self, player_id):
+            raise RuntimeError("simulated service failure")
+    from services.profiles.dependencies import get_service
+    app.dependency_overrides[get_service] = lambda: ExceptionService()
+    with TestClient(app) as client:
+        response = client.get("/get_client_config/any")
+        assert response.status_code == 404
+        assert response.json()["detail"] == "Profile not found"
+    app.dependency_overrides.clear()
