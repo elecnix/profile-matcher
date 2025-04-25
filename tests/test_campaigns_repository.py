@@ -10,19 +10,21 @@ Key concepts:
 """
 import pytest
 import httpx
+from typing import Any
 from services.profiles.repository.campaigns import CampaignRepository
+from services.profiles.repository.campaigns_types import Campaign
 
 @pytest.mark.asyncio
-async def test_get_active_campaigns_success(monkeypatch):
+async def test_get_active_campaigns_success(monkeypatch: pytest.MonkeyPatch) -> None:
     """
     Test that get_active_campaigns returns campaign data when the HTTP request succeeds.
     Mocks httpx.AsyncClient.get to return a controlled response.
     """
-    async def mock_get(*args, **kwargs):
+    async def mock_get(*args: Any, **kwargs: Any) -> Any:
         class MockResponse:
-            def raise_for_status(self):
+            def raise_for_status(self) -> None:
                 pass
-            async def json(self):
+            async def json(self) -> list[Campaign]:
                 return [{"id": 1, "name": "test"}]
         return MockResponse()
     monkeypatch.setattr(httpx.AsyncClient, "get", mock_get)
@@ -31,16 +33,16 @@ async def test_get_active_campaigns_success(monkeypatch):
     assert campaigns == [{"id": 1, "name": "test"}]
 
 @pytest.mark.asyncio
-async def test_get_active_campaigns_error(monkeypatch):
+async def test_get_active_campaigns_error(monkeypatch: pytest.MonkeyPatch) -> None:
     """
     Test that get_active_campaigns raises an error when the HTTP request fails.
     Mocks httpx.AsyncClient.get to simulate an HTTP error.
     """
-    async def mock_get(*args, **kwargs):
+    async def mock_get(*args: Any, **kwargs: Any) -> Any:
         class MockResponse:
-            def raise_for_status(self):
+            def raise_for_status(self) -> None:
                 raise httpx.HTTPStatusError("error", request=None, response=None)
-            async def json(self):
+            async def json(self) -> None:
                 return None
         return MockResponse()
     monkeypatch.setattr(httpx.AsyncClient, "get", mock_get)
