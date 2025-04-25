@@ -34,7 +34,7 @@ class MockProfileService:
 
 @pytest.fixture(autouse=True)
 def override_service_dependency():
-    from services.profiles.main import get_service
+    from services.profiles.dependencies import get_service
     app.dependency_overrides[get_service] = lambda: MockProfileService()
     yield
     app.dependency_overrides.clear()
