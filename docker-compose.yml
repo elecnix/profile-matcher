@@ -3,7 +3,7 @@ services:
     build:
       context: .
       dockerfile: services/campaigns/Dockerfile
-    command: uv run uvicorn main:app --host 0.0.0.0 --port 8000
+    command: uv run uvicorn main:app --host 0.0.0.0 --port 8000 --reload
     ports:
       - "54325:8000"
     environment:
@@ -15,12 +15,14 @@ services:
     build:
       context: .
       dockerfile: services/profiles/Dockerfile
-    command: uv run uvicorn main:app --host 0.0.0.0 --port 8000
+    # Hot-reload enabled via --reload and volume mount below
+    command: uv run uvicorn main:app --host 0.0.0.0 --port 8000 --reload
     ports:
       - "54326:8000"
     environment:
       - PYTHONUNBUFFERED=1
       - MONGO_URL=mongodb://mongo:27017
+    # Mount local code for instant reloads in dev
     volumes:
       - ./services/profiles:/app/services/profiles
     depends_on:
