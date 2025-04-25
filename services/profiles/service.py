@@ -21,13 +21,14 @@ class ProfileService:
         profile.active_campaigns = matched_campaigns
         return profile
 
-def match_campaign(profile: Profile, campaign: Campaign) -> bool:
+def level_matcher(profile: Profile, campaign: Campaign) -> bool:
     matchers = campaign.matchers
-    # Level matcher
     if matchers.level:
-        if not (matchers.level.min <= profile.level <= matchers.level.max):
-            return False
-    # Has matcher
+        return matchers.level.min <= profile.level <= matchers.level.max
+    return True
+
+def has_matcher(profile: Profile, campaign: Campaign) -> bool:
+    matchers = campaign.matchers
     if matchers.has:
         if matchers.has.country:
             if profile.country not in matchers.has.country:
@@ -36,9 +37,20 @@ def match_campaign(profile: Profile, campaign: Campaign) -> bool:
             inventory_items = set(profile.inventory.keys())
             if not set(matchers.has.items).issubset(inventory_items):
                 return False
-    # DoesNotHave matcher
+    return True
+
+def does_not_have_matcher(profile: Profile, campaign: Campaign) -> bool:
+    matchers = campaign.matchers
     if matchers.does_not_have and matchers.does_not_have.items:
         inventory_items = set(profile.inventory.keys())
         if set(matchers.does_not_have.items) & inventory_items:
             return False
     return True
+
+def match_campaign(profile: Profile, campaign: Campaign) -> bool:
+    matcher_functions = [
+        level_matcher,
+        has_matcher,
+        does_not_have_matcher
+    ]
+    return all(matcher(profile, campaign) for matcher in matcher_functions)

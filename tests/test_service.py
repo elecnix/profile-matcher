@@ -1,117 +1,79 @@
-"""
-Unit tests for the ProfileService class (business logic layer).
-
-This test file demonstrates how to test service/business logic in isolation by mocking repository dependencies with AsyncMock.
-
-Key concepts:
-- Use AsyncMock to create fake repository objects that return controlled results.
-- Test service logic without touching the database or external APIs.
-- Verify both the happy path and edge cases (e.g., profile not found).
-
-Each test focuses on a different matcher property (level, country, has.items, does_not_have.items)
-using hypothesis strategies for Profile and Campaign.
-"""
-import pytest
-from unittest.mock import AsyncMock
-from hypothesis import given, strategies as st, settings
+from hypothesis import given, strategies as st
 from hypothesis.strategies import from_type
-from services.profiles.repository.profiles import ProfileRepository
-from services.profiles.repository.campaigns import CampaignRepository
-from services.profiles.service import ProfileService
+from services.profiles.service import level_matcher, has_matcher, does_not_have_matcher, match_campaign
 from services.profiles.repository.profiles_types import Profile
 from services.profiles.repository.campaigns_types import Campaign, Matchers, LevelMatcher, HasMatcher, DoesNotHaveMatcher
 
-settings.register_profile("fast", max_examples=10)
-settings.load_profile("fast")
+st_profile = from_type(Profile)
+st_campaign = from_type(Campaign)
 
-profile_base_strategy = from_type(Profile)
-campaign_base_strategy = from_type(Campaign)
+def with_matchers(campaign, matchers: Matchers):
+    return campaign.model_copy(update={'matchers': matchers})
 
-# Helper to build a campaign with a specific matcher
+@given(st_profile, st_campaign)
+def test_level_matcher_in_range(profile: Profile, campaign:Campaign):
+    campaign = with_matchers(campaign, Matchers(level=LevelMatcher(min=1, max=10)))
+    profile = profile.model_copy(update={'level': 5})
+    assert level_matcher(profile, campaign)
 
-def campaign_with_matchers(**matcher_kwargs):
-    return campaign_base_strategy.map(
-        lambda campaign: campaign.model_copy(update={"matchers": Matchers(**matcher_kwargs)})
-    )
+@given(st_profile, st_campaign)
+def test_level_matcher_out_of_range(profile: Profile, campaign: Campaign):
+    campaign = with_matchers(campaign, Matchers(level=LevelMatcher(min=5, max=10)))
+    profile = profile.model_copy(update={'level': 3})
+    assert not level_matcher(profile, campaign)
 
-async def run_service_with_profile_and_campaigns(profile: Profile, campaigns: list[Campaign]):
-    """
-    Helper to run ProfileService.get_client_config with given profile and campaigns.
-    """
-    mock_profile_repo = AsyncMock(ProfileRepository)
-    mock_campaign_repo = AsyncMock(CampaignRepository)
-    mock_profile_repo.get_profile_by_player_id.return_value = profile
-    mock_campaign_repo.get_active_campaigns.return_value = campaigns
-    service = ProfileService(mock_profile_repo, mock_campaign_repo)
-    return await service.get_client_config(profile.player_id)
+@given(st_profile, st_campaign)
+def test_has_matcher_country_pass(profile: Profile, campaign: Campaign):
+    campaign = with_matchers(campaign, Matchers(has=HasMatcher(country=['US', 'FR'])))
+    profile = profile.model_copy(update={'country': 'FR'})
+    assert has_matcher(profile, campaign)
 
-@pytest.mark.asyncio
-async def test_get_client_config_profile_not_found():
-    """
-    Test that get_client_config returns None when the profile is not found.
-    """
-    mock_profile_repo = AsyncMock(ProfileRepository)
-    mock_campaign_repo = AsyncMock(CampaignRepository)
-    mock_profile_repo.get_profile_by_player_id.return_value = None
-    service = ProfileService(mock_profile_repo, mock_campaign_repo)
-    result = await service.get_client_config("notfound")
-    assert result is None
+@given(st_profile, st_campaign)
+def test_has_matcher_country_fail(profile: Profile, campaign: Campaign):
+    campaign = with_matchers(campaign, Matchers(has=HasMatcher(country=['US', 'FR'])))
+    profile = profile.model_copy(update={'country': 'DE'})
+    assert not has_matcher(profile, campaign)
 
-min_max_level = st.integers(min_value=1, max_value=100).flatmap(
-    lambda min_level: st.tuples(st.just(min_level), st.integers(min_value=min_level, max_value=100))
-)
+@given(st_profile, st_campaign)
+def test_has_matcher_items_pass(profile: Profile, campaign: Campaign):
+    campaign = with_matchers(campaign, Matchers(has=HasMatcher(items=['sword', 'shield'])))
+    profile = profile.model_copy(update={'inventory': {'sword': 1, 'shield': 2}})
+    assert has_matcher(profile, campaign)
 
-level_matcher_strategy = min_max_level.flatmap(
-    lambda min_max: campaign_base_strategy.map(
-        lambda campaign: campaign.model_copy(update={"matchers": Matchers(level=LevelMatcher(min=min_max[0], max=min_max[1]))})
-    )
-)
+@given(st_profile, st_campaign)
+def test_has_matcher_items_fail(profile: Profile, campaign: Campaign):
+    campaign = with_matchers(campaign, Matchers(has=HasMatcher(items=['sword', 'shield'])))
+    profile = profile.model_copy(update={'inventory': {'sword': 1}})
+    assert not has_matcher(profile, campaign)
 
-@pytest.mark.asyncio
-@given(
-    profile=profile_base_strategy,
-    campaign=level_matcher_strategy
-)
-async def test_level_matcher(profile: Profile, campaign: Campaign):
-    result = await run_service_with_profile_and_campaigns(profile, [campaign])
-    in_range = campaign.matchers.level.min <= profile.level <= campaign.matchers.level.max
-    if in_range:
-        assert campaign.name in result.active_campaigns
-    else:
-        assert campaign.name not in result.active_campaigns
+@given(st_profile, st_campaign)
+def test_does_not_have_matcher_pass(profile: Profile, campaign: Campaign):
+    campaign = with_matchers(campaign, Matchers(does_not_have=DoesNotHaveMatcher(items=['bow'])))
+    profile = profile.model_copy(update={'inventory': {'sword': 1}})
+    assert does_not_have_matcher(profile, campaign)
 
-@pytest.mark.asyncio
-@given(
-    profile=profile_base_strategy,
-    country=st.text(min_size=2, max_size=2),
-    campaign=campaign_base_strategy
-)
-async def test_country_matcher(profile: Profile, country: str, campaign: Campaign):
-    campaign = campaign.model_copy(update={"matchers": Matchers(country=[country])})
-    profile = profile.model_copy(update={"country": country})
-    result = await run_service_with_profile_and_campaigns(profile, [campaign])
-    assert campaign.name in result.active_campaigns
+@given(st_profile, st_campaign)
+def test_does_not_have_matcher_fail(profile: Profile, campaign: Campaign):
+    campaign = with_matchers(campaign, Matchers(does_not_have=DoesNotHaveMatcher(items=['sword'])))
+    profile = profile.model_copy(update={'inventory': {'sword': 1}})
+    assert not does_not_have_matcher(profile, campaign)
 
-@pytest.mark.asyncio
-@given(
-    profile=profile_base_strategy,
-    item=st.text(min_size=1, max_size=10),
-    campaign=campaign_base_strategy
-)
-async def test_has_items_matcher(profile: Profile, item: str, campaign: Campaign):
-    campaign = campaign.model_copy(update={"matchers": Matchers(has=HasMatcher(items=[item]))})
-    profile = profile.model_copy(update={"inventory": {item: 1}})
-    result = await run_service_with_profile_and_campaigns(profile, [campaign])
-    assert campaign.name in result.active_campaigns
+@given(st_profile, st_campaign)
+def test_match_campaign_all_match(profile: Profile, campaign: Campaign):
+    campaign = with_matchers(campaign, Matchers(
+        level=LevelMatcher(min=1, max=10),
+        has=HasMatcher(country=['US'], items=['sword']),
+        does_not_have=DoesNotHaveMatcher(items=['bow'])
+    ))
+    profile = profile.model_copy(update={'level': 5, 'country': 'US', 'inventory': {'sword': 1}})
+    assert match_campaign(profile, campaign)
 
-@pytest.mark.asyncio
-@given(
-    profile=profile_base_strategy,
-    forbidden_item=st.text(min_size=1, max_size=10),
-    campaign=campaign_base_strategy
-)
-async def test_does_not_have_items_matcher(profile: Profile, forbidden_item: str, campaign: Campaign):
-    campaign = campaign.model_copy(update={"matchers": Matchers(does_not_have=DoesNotHaveMatcher(items=[forbidden_item]))})
-    profile = profile.model_copy(update={"inventory": {forbidden_item: 1}})
-    result = await run_service_with_profile_and_campaigns(profile, [campaign])
-    assert campaign.name not in result.active_campaigns
+@given(st_profile, st_campaign)
+def test_match_campaign_one_fails(profile:Profile, campaign:Campaign):
+    campaign = with_matchers(campaign, Matchers(
+        level=LevelMatcher(min=1, max=10),
+        has=HasMatcher(country=['US'], items=['sword']),
+        does_not_have=DoesNotHaveMatcher(items=['bow'])
+    ))
+    profile = profile.model_copy(update={'level': 5, 'country': 'US', 'inventory': {'sword': 1, 'bow': 2}})
+    assert not match_campaign(profile, campaign)

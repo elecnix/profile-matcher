@@ -51,6 +51,12 @@ To run the tests, use:
 pytest
 ```
 
+To produce a coverage report:
+
+```bash
+uv run pytest --cov --cov-report=xml --cov-report=term-missing
+```
+
 ## Services
 
 - **Campaign Service**: Serves campaign data via HTTP API.
