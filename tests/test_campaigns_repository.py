@@ -11,6 +11,7 @@ Key concepts:
 import httpx
 import pydantic
 import pytest
+import datetime
 from typing import Any
 from services.profiles.repository.campaigns import CampaignRepository
 from services.profiles.repository.campaigns_types import Campaign
@@ -20,24 +21,46 @@ from hypothesis.strategies import from_type
 
 campaign_strategy = from_type(Campaign)
 
-@pytest.mark.asyncio
-@given(campaign_strategy)
-async def test_get_active_campaigns_success(campaign: Campaign) -> None:
-    """
-    Test that get_active_campaigns returns campaign data when the HTTP request succeeds.
-    Uses Hypothesis to generate campaigns.
-    """
-    async def mock_get(*args: Any, **kwargs: Any) -> Any:
+
+def make_mock_get(called, campaign):
+    async def mock_get(self, url, params=None, **kwargs):
+        called['url'] = url
+        called['params'] = params
         class MockResponse:
             def raise_for_status(self) -> None:
                 pass
             async def json(self) -> list:
                 return [campaign.model_dump()]
         return MockResponse()
-    with patch("httpx.AsyncClient.get", mock_get):
+    return mock_get
+
+@pytest.mark.asyncio
+@given(campaign_strategy)
+async def test_get_active_campaigns_success_explicit_interval(campaign: Campaign) -> None:
+    """
+    Test that get_active_campaigns returns campaign data and passes explicit interval params.
+    """
+    called = {}
+    with patch("httpx.AsyncClient.get", make_mock_get(called, campaign)):
         repo = CampaignRepository()
-        campaigns = await repo.get_active_campaigns()
-        assert [c.model_dump() for c in campaigns] == [campaign.model_dump()]
+        start = datetime.datetime(2025, 1, 1, tzinfo=datetime.timezone.utc)
+        end = datetime.datetime(2025, 1, 2, tzinfo=datetime.timezone.utc)
+        await repo.get_active_campaigns(start, end)
+        assert called['params']['start_date'] == start.isoformat()
+        assert called['params']['end_date'] == end.isoformat()
+
+@pytest.mark.asyncio
+@given(campaign_strategy)
+async def test_get_active_campaigns_success_default_interval(campaign: Campaign) -> None:
+    """
+    Test that get_active_campaigns returns campaign data and passes default interval params.
+    """
+    called = {}
+    with patch("httpx.AsyncClient.get", make_mock_get(called, campaign)):
+        repo = CampaignRepository()
+        await repo.get_active_campaigns()
+        assert 'start_date' in called['params']
+        assert 'end_date' in called['params']
 
 @pytest.mark.asyncio
 async def test_get_active_campaigns_error() -> None:

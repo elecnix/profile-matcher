@@ -1,5 +1,6 @@
 from fastapi import Depends
 from motor.motor_asyncio import AsyncIOMotorClient
+from services.profiles.repository.campaigns_cache import CampaignCache
 from services.profiles.repository.profiles import ProfileRepository
 from services.profiles.repository.campaigns import CampaignRepository
 from services.profiles.service import ProfileService
@@ -18,4 +19,4 @@ def get_service(
     profile_repository: ProfileRepository = Depends(get_profile_repository),
     campaign_repository: CampaignRepository = Depends(get_campaign_repository),
 ) -> ProfileService:
-    return ProfileService(profile_repository, campaign_repository)
+    return ProfileService(profile_repository, campaign_repository, CampaignCache)
