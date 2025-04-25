@@ -12,9 +12,10 @@ Key concepts:
 import pytest
 from unittest.mock import AsyncMock
 from services.profiles.repository.profiles import ProfileRepository
+from services.profiles.repository.profiles_types import Profile
 
 @pytest.mark.asyncio
-async def test_get_profile_by_player_id():
+async def test_get_profile_by_player_id() -> None:
     """
     Test that get_profile_by_player_id returns the correct profile from the database.
 
@@ -27,7 +28,7 @@ async def test_get_profile_by_player_id():
             "profiles": AsyncMock() # the result of a call is an awaitable
         }
     }
-    expected_profile = {"player_id": "123", "name": "Test"}
+    expected_profile: Profile = {"player_id": "123", "name": "Test"}
     fake_db["profiles_db"]["profiles"].find_one = AsyncMock(return_value=expected_profile) # return value when awaited
     repo = ProfileRepository(fake_db)
     # When
