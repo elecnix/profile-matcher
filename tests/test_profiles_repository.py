@@ -11,7 +11,8 @@ Key concepts:
 """
 import pytest
 from hypothesis import given
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, create_autospec
+from motor.motor_asyncio import AsyncIOMotorClient
 from services.profiles.repository.profiles import ProfileRepository
 from services.profiles.repository.profiles_types import Profile
 from hypothesis import strategies
@@ -19,11 +20,7 @@ from hypothesis import strategies
 profile_base_strategy = strategies.from_type(Profile)
 
 def create_fake_db():
-    return {
-        "profiles_db": {
-            "profiles": AsyncMock()
-        }
-    }
+    return create_autospec(AsyncIOMotorClient, instance=True)
 
 @pytest.mark.asyncio
 @given(profile_base_strategy)
@@ -32,8 +29,9 @@ async def test_get_profile_by_player_id(expected_profile: Profile):
     fake_db["profiles_db"]["profiles"].find_one = AsyncMock(return_value=expected_profile.model_dump())
     repo = ProfileRepository(fake_db)
     result = await repo.get_profile_by_player_id(expected_profile.player_id)
+    assert result is not None
     assert result.model_dump() == expected_profile.model_dump()
-    assert "_id" not in result
+    assert "_id" not in result.model_dump()
 
 @pytest.mark.asyncio
 @given(profile_base_strategy.map(lambda p: p.model_copy(update={"_custom": "ok"})))
@@ -42,6 +40,7 @@ async def test_profile_custom_field_ok(profile: Profile):
     fake_db["profiles_db"]["profiles"].find_one = AsyncMock(return_value=profile.model_dump())
     repo = ProfileRepository(fake_db)
     result = await repo.get_profile_by_player_id(profile.player_id)
+    assert result is not None
     assert result.model_dump() == profile.model_dump()
     assert "_custom" in result.model_dump(), "Profile should contain _custom field"
 

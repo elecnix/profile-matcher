@@ -18,15 +18,15 @@ from services.profiles.repository.campaigns_types import Campaign
 from hypothesis import given
 from unittest.mock import patch
 from hypothesis.strategies import from_type
-import pytest_asyncio
 
 campaign_strategy = from_type(Campaign)
 
-@pytest_asyncio.fixture(autouse=True)
+@pytest.fixture(autouse=True)
 def patch_fetch_campaigns(monkeypatch):
     # Patch the _fetch_campaigns method to remove the aiocache decorator for tests
     orig = CampaignRepository._fetch_campaigns.__wrapped__
     monkeypatch.setattr(CampaignRepository, "_fetch_campaigns", orig)
+    yield
 
 def make_mock_get(called, campaign):
     async def mock_get(self, url, params=None, **kwargs):
@@ -82,7 +82,12 @@ async def test_get_active_campaigns_error() -> None:
     async def mock_get(*args: Any, **kwargs: Any) -> Any:
         class MockResponse:
             def raise_for_status(self) -> None:
-                raise httpx.HTTPStatusError("error", request=None, response=None)
+                request = httpx.Request("GET", "https://example.com")
+                raise httpx.HTTPStatusError(
+                    "error",
+                    request=request,
+                    response=httpx.Response(500, request=request)
+                )
             def json(self) -> None:
                 return None
         return MockResponse()

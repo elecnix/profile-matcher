@@ -1,11 +1,11 @@
-from typing import List
+from typing import List, Optional
 from .campaigns_types import Campaign, CampaignResponse
 import httpx
 from datetime import datetime, timezone
 from aiocache import cached, SimpleMemoryCache
 
 class CampaignRepository:
-    async def get_active_campaigns(self, start_date: datetime = None, end_date: datetime = None) -> List[Campaign]:
+    async def get_active_campaigns(self, start_date: Optional[datetime] = None, end_date: Optional[datetime] = None) -> List[Campaign]:
         """
         Get active campaigns in the given interval. If no interval is given, active campaigns at the current time are returned.
         """

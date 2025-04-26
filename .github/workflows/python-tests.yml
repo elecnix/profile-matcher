@@ -20,3 +20,5 @@ jobs:
         run: uv sync
       - name: Run tests
         run: uv run pytest --cov --cov-report=xml --cov-report=term-missing --cov-fail-under=95
+      - name: Run pyright
+        run: uv run pyright
