@@ -1,9 +1,7 @@
 import os
-import logging
-from fastapi import FastAPI, HTTPException, Depends, Request
+from fastapi import FastAPI
 from motor.motor_asyncio import AsyncIOMotorClient
 from contextlib import asynccontextmanager
-from typing import Optional, Dict
 from services.profiles.api import health_router, client_config_router
 
 @asynccontextmanager
