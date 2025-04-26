@@ -11,59 +11,68 @@ Key concepts:
 import pytest
 from fastapi.testclient import TestClient
 from services.profiles.main import app
+from hypothesis import given, strategies as st
+from services.profiles.repository.profiles_types import Profile
 
-mock_profile = {
-    "player_id": "9001",
-    "name": "Test",
-    "level": 1,
-    "active_campaigns": [{"id": 1}]
-}
+from typing import Callable
 
-class MockProfileService:
-    async def get_client_config(self, player_id: str):
-        if player_id == "9001":
-            return mock_profile
-        return None
+from contextlib import contextmanager
 
-@pytest.fixture(autouse=True)
-def override_service_dependency():
+# Generate a player ID that is a valid URL parameter
+st_player_id = st.text(
+    alphabet=st.characters(
+        whitelist_categories=('L', 'N'),  # Letters and digits
+        whitelist_characters="-_",
+    ),
+    min_size=1,
+    max_size=32,
+)
+
+@contextmanager
+def inject_profile_service(profile_lambda: Callable[[str], object]):
+    class MockProfileService:
+        async def get_client_config(self, player_id: str):
+            return profile_lambda(player_id)
     from services.profiles.dependencies import get_service
     app.dependency_overrides[get_service] = lambda: MockProfileService()
-    yield
-    app.dependency_overrides.clear()
+    try:
+        yield
+    finally:
+        app.dependency_overrides.clear()
 
-def test_endpoint_get_client_config_success():
+@pytest.mark.asyncio
+@given(profile=st.builds(Profile, player_id=st_player_id))
+async def test_endpoint_get_client_config_success(profile: Profile):
     """
-    Test that the endpoint returns a profile when the player exists.
-    Uses a mock ProfileService via dependency override.
+    Test that the endpoint returns a profile.
     """
-    with TestClient(app) as client:
-        response = client.get("/get_client_config/9001")
-        assert response.status_code == 200
-        assert response.json() == mock_profile
+    with inject_profile_service(lambda player_id: profile):
+        with TestClient(app) as client:
+            response = client.get(f"/get_client_config/{profile.player_id}")
+            assert response.status_code == 200
+            assert response.json() == profile.model_dump()
 
-def test_endpoint_get_client_config_not_found():
+@pytest.mark.asyncio
+@given(profile=st.builds(Profile, player_id=st_player_id))
+async def test_endpoint_get_client_config_not_found(profile: Profile):
     """
-    Test that the endpoint returns a 404 error when the profile is not found.
-    Uses a mock ProfileService via dependency override.
+    Test that the endpoint returns a 404 error.
     """
-    with TestClient(app) as client:
-        response = client.get("/get_client_config/404")
-        assert response.status_code == 404
-        assert response.json()["detail"] == "Profile not found"
+    with inject_profile_service(lambda player_id: None):
+        with TestClient(app) as client:
+            response = client.get(f"/get_client_config/{profile.player_id}")
+            assert response.status_code == 404
+            assert response.json()["detail"] == "Profile not found"
 
-def test_endpoint_get_client_config_exception(monkeypatch):
+@pytest.mark.asyncio
+@given(profile=st.builds(Profile, player_id=st_player_id))
+async def test_endpoint_get_client_config_exception(profile: Profile):
     """
-    Test that the endpoint logs and returns 500 when an exception is raised in the service.
+    Test that the endpoint responds with HTTP 500.
     Covers the except/logging path in the endpoint.
     """
-    class ExceptionService:
-        async def get_client_config(self, player_id):
-            raise RuntimeError("simulated service failure")
-    from services.profiles.dependencies import get_service
-    app.dependency_overrides[get_service] = lambda: ExceptionService()
-    with TestClient(app) as client:
-        response = client.get("/get_client_config/any")
-        assert response.status_code == 500
-        assert response.json()["detail"] == "Internal server error"
-    app.dependency_overrides.clear()
+    with inject_profile_service(lambda player_id: (_ for _ in ()).throw(RuntimeError("simulated service failure"))):
+        with TestClient(app) as client:
+            response = client.get(f"/get_client_config/{profile.player_id}")
+            assert response.status_code == 500
+            assert response.json()["detail"] == "Internal server error"

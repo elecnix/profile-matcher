@@ -35,7 +35,7 @@ def make_mock_get(called, campaign):
         class MockResponse:
             def raise_for_status(self) -> None:
                 pass
-            async def json(self) -> list:
+            def json(self) -> list:
                 return [campaign.model_dump()]
         return MockResponse()
     return mock_get
@@ -83,7 +83,7 @@ async def test_get_active_campaigns_error() -> None:
         class MockResponse:
             def raise_for_status(self) -> None:
                 raise httpx.HTTPStatusError("error", request=None, response=None)
-            async def json(self) -> None:
+            def json(self) -> None:
                 return None
         return MockResponse()
     with patch("httpx.AsyncClient.get", mock_get):
@@ -104,7 +104,7 @@ async def test_get_active_campaigns_invalid_campaign(invalid_campaign: Campaign)
         class MockResponse:
             def raise_for_status(self) -> None:
                 pass
-            async def json(self) -> list:
+            def json(self) -> list:
                 return [invalid_campaign.model_dump()]
         return MockResponse()
     with patch("httpx.AsyncClient.get", mock_get):

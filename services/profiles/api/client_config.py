@@ -17,10 +17,10 @@ async def get_client_config(
     try:
         profile = await service.get_client_config(player_id)
         if profile:
-            return profile
+            return profile.model_dump()
         raise HTTPException(status_code=404, detail="Profile not found")
     except HTTPException:
         raise
     except Exception as e:
-        logging.error(f"get_client_config failed: {e}")
+        logging.exception(f"get_client_config failed: {e}")
         raise HTTPException(status_code=500, detail="Internal server error")
